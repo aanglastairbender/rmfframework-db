@@ -1,0 +1,699 @@
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetBIJLIEmployee]    Script Date: 8/27/2018 3:33:50 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/*
+EXEC [spgetBIJLIEmployee]
+*/
+ALTER PROCEDURE [dbo].[spgetBIJLIEmployee] 
+
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+				SELECT one.[EMPCode]
+					  ,one.[EOName] AS 'EmployeeName'
+					  ,CASE WHEN LEN(one.PhNo1) <> 10 
+					        THEN '0'
+					         ELSE CONCAT('0',one.PhNo1)
+					   END  As 'ContactNumber'
+					  ,CASE WHEN one.Email IS NULL OR  one.Email =''
+								THEN 'NONE'
+						         ELSE one.Email
+						END  As 'Email'
+					  ,one.[Designation]
+					  ,CASE WHEN one.BranchCode IS NULL OR  one.BranchCode ='-1'
+								THEN '000'
+						         ELSE one.BranchCode
+						END  As 'BranchCode'
+				FROM VEoMst one
+					LEFT OUTER JOIN VEoMst two
+					ON one.EOID = two.EOID AND one.AllocateID < two.AllocateID
+				WHERE 
+					one.[EntType] <> 'D'
+					AND one.EMPCode <> 'XXXXXX'
+		
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetBranch]    Script Date: 8/27/2018 4:02:22 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/*
+EXEC [spgetBranch]
+*/
+ALTER PROCEDURE [dbo].[spgetBranch] 
+
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+			SELECT 	BranchCode,
+					BranchName,
+					Address1 AS 'Address',
+					Latitude,
+					Longitude
+			FROM 
+				dbo.BranchMst(NOLOCK) 
+ 			WHERE 
+				EntType <> 'D' 
+ 			ORDER By 
+				BranchName  
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetBudgetPreparationInflowCollections]    Script Date: 8/27/2018 5:01:58 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/*
+
+EXEC spgetBudgetPreparationInflowCollections '2018-06-01','2018-06-07','003'
+*/
+ALTER PROCEDURE [dbo].[spgetBudgetPreparationInflowCollections] 
+	@FromDate DATE,
+	@ToDate DATE,
+	@BranchCode VARCHAR(4)
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+			SELECT ISNULL(SUM(ld.ResAmt), 0 ) AS 'Loan',
+				   ISNULL(SUM(lm.SaveAmount), 0 ) AS 'CBU/Savings' 
+			FROM LoanDtl ld
+				INNER JOIN LoanMst lm WITH (NOLOCK) 
+				ON ld.LoanId = lm.loanId
+			WHERE 
+				ld.BranchCode=@BranchCode 
+				AND ld.DueDt >=  @FromDate 
+				AND ld.DueDt <= @ToDate
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetBudgetPreparationInflowInsurance]    Script Date: 8/27/2018 5:02:47 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/*
+
+EXEC spgetBudgetPreparationInflowCollections '2018-06-01','2018-06-07','003'
+*/
+ALTER PROCEDURE [dbo].[spgetBudgetPreparationInflowInsurance] 
+	@FromDate DATE,
+	@ToDate DATE,
+	@BranchCode VARCHAR(4)
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+		SELECT
+			 ISNULL(sum(mip.CollAmt), 0 ) as 'Insurance'
+
+		FROM LoanMst lm WITH (NOLOCK)
+
+				INNER JOIN LoanApplication la WITH (NOLOCK)
+				 ON la.LoanAppId = lm.LoanAppId
+				INNER JOIN MicroInsurancePreDeduction mip WITH (NOLOCK) 
+				ON mip.LoanID = lm.LoanId
+
+		WHERE	la.ApprovedYN = 'Y' 
+				AND mip.BranchCode=@BranchCode 
+				AND la.ApprovalDt  >=  @FromDate 
+				AND la.ApprovalDt  <= @ToDate
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+
+
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetBudgetPreparationOutflowReloans]    Script Date: 8/27/2018 5:04:01 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+--  EXEC spgetBudgetPreparationOutflowReloans  '2018-1-1','2018-1-31','003'
+
+
+ALTER PROCEDURE [dbo].[spgetBudgetPreparationOutflowReloans] 
+	@FromDate DATE,
+	@ToDate DATE,
+	@BranchCode VARCHAR(4)
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+			Select 
+				EmpCode,
+				EOName			AS 'EmployeeName',
+				MemberName		AS 'ClientName',
+				ISNULL(lm.LoanAmt, 0 )		AS 'LoanAmount',
+				lm.ClosingDt	AS 'ClosingDate',
+				CASE lm.CashOrChqOrJour
+					WHEN 'C' then 1 --'Cash'
+					WHEN 'B' then 2--'Bank'
+					WHEN 'J' then 3--'Journal'
+					WHEN 'R' then 4--'Remco'
+					WHEN 'D' then 5--'DebitAdvice'
+					ELSE 6--'Other'
+				END AS 'Channel'
+			FROM LoanMst lm WITH (NOLOCK)
+				INNER JOIN LoanDtl ld WITH (NOLOCK) ON lm.LoanId = ld.LoanId
+				INNER JOIN MemberMst mm WITH (NOLOCK) ON lm.MemberId = mm.MemberId
+				INNER JOIN EoMst em WITH (NOLOCK) ON em.EOID = lm.EOID
+			WHERE lm.ClosingDt >=  @FromDate AND lm.ClosingDt <=  @ToDate 
+				AND ld.Outstanding = 0 AND BranchCode = @BranchCode
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetChartOfAccounts]    Script Date: 8/27/2018 4:15:51 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/*
+EXEC spgetChartOfAccounts
+*/
+ALTER PROCEDURE [dbo].[spgetChartOfAccounts] 
+
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+			SELECT 
+				id_code,
+				[description]
+		
+			FROM 
+				dbo.chart_acct 
+ 	
+ 		 
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetDailyCashFlowInflowCollection]    Script Date: 8/27/2018 5:04:59 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/*
+ EXEC [spgetDailyCashFlowInflowCollection]  '2018-05-01','003'
+*/
+
+
+ALTER PROCEDURE [dbo].[spgetDailyCashFlowInflowCollection] 
+	@Date DATE,
+	@BranchCode VARCHAR(04)
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+			Select
+				ISNULL( Q1.Loan - sum(Q2.CollAmt), 0 ) as 'Loan',ISNULL(Q1.CBU, 0 ) AS 'CBU/Savings'
+			From (Select
+				sum(ld.ResAmt) as 'Loan',sum(lm.SaveAmount) as 'CBU'
+			From LoanMst lm with(nolock)
+				Inner join LoanDtl ld with(nolock) on ld.LoanId = lm.loanId
+				Inner join BranchMst bm with(nolock) on bm.BranchCode = ld.BranchCode
+			Where bm.BranchCode = @BranchCode and ld.DueDt = @Date) Q1,
+			(
+				Select
+
+				ld.ResAmt as 'CollAmt' 
+			From LoanMst lm with (nolock)
+				 Inner join CollectionDtl cd with (nolock) on cd.LoanId = lm.LoanId
+				 Inner join LoanDtl ld  with (nolock) on ld.LoanId = lm.LoanId
+			Where cd.AccDate = @Date and cd.BranchCode = @BranchCode and lm.LoanAmt = cd.TotPrinCollAmt
+			Group By 
+					 ld.ResAmt
+			) Q2 Group By Q1.Loan,Q1.CBu
+
+
+
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetDailyCashFlowInflowInsurance]    Script Date: 8/27/2018 5:05:59 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+--EXEC getBudgetPreparationInflowCollections  '2018-1-1','2018-1-31','003'
+-- EXEC spgetDailyCashFlowOutflowReloans '02-01-2018','003'
+
+
+ALTER PROCEDURE [dbo].[spgetDailyCashFlowInflowInsurance] 
+	@Date DATE,
+	@BranchCode VARCHAR(04)
+AS
+BEGIN
+Begin Try
+
+Begin Transaction
+		SELECT
+			ISNULL( SUM(mip.CollAmt), 0 ) as 'Insurance'
+
+		FROM LoanMst lm WITH (NOLOCK)
+
+				INNER JOIN LoanApplication la WITH (NOLOCK)
+				 ON la.LoanAppId = lm.LoanAppId
+				INNER JOIN MicroInsurancePreDeduction mip WITH (NOLOCK) 
+				ON mip.LoanID = lm.LoanId
+
+		WHERE	la.ApprovedYN = 'Y' 
+				AND mip.BranchCode = @BranchCode 
+				AND la.ApprovalDt  =  @Date 
+			
+
+
+	--group by em.EOName
+
+COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetDailyCashFlowOutflowReloans]    Script Date: 8/27/2018 5:07:11 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+--EXEC getBudgetPreparationInflowCollections  '2018-1-1','2018-1-31','003'
+-- EXEC spgetDailyCashFlowOutflowReloans '02-01-2018','003'
+
+
+ALTER PROCEDURE [dbo].[spgetDailyCashFlowOutflowReloans] 
+	@Date date,
+	@BranchCode varchar(04)
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+			SELECT 
+				EmpCode,
+				EOName				AS 'EmployeeName',
+				ISNULL(SUM(lm.LoanAmt), 0 )		AS 'LoanAmount'
+			FROM LoanDtl ld WITH (NOLOCK)
+				INNER JOIN LoanMst lm WITH (NOLOCK) ON lm.LoanId = ld.LoanId
+				INNER JOIN EoMst em WITH (NOLOCK) ON em.EOID = lm.EOID
+			WHERE ld.BranchCode = @BranchCode and ld.DueDt = @Date and lm.LoanAmt = ld.RPAmt
+	GROUP BY em.EOName,EMPCode
+
+COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetGetDailyCashFlowChartOfAccounts]    Script Date: 8/27/2018 4:57:27 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/**
+EXEC spgetGetDailyCashFlowChartOfAccounts '001','2018-03-23','CU81'
+
+TODO:Dyanmic table using finyear
+**/
+
+ALTER PROCEDURE [dbo].[spgetGetDailyCashFlowChartOfAccounts] 
+@BranchCode varchar(4),
+@CurrentDate Date,
+@ChartOfAccountId Varchar(10)
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+Select
+	ISNULL(SUM(vd.Amt), 0 )
+	 AS 'ActualDailyAmount'
+From ACVouDtl04 vd with (nolock)
+	 Inner join chart_acct ca with (nolock) on ca.id_code = vd.DescId
+	 Inner join ACVouMst04 vh with (nolock) on vd.HeadId = vh.HeadId
+Where vh.VoucherDt = @CurrentDate and vh.BranchCode = @BranchCode and ca.id_code = @ChartOfAccountId
+
+-- JAP Chart of Account
+--		select sum(vd.Amt) as ActualDailyAmount
+--from [RAFI_FINAL].[dbo].[ACVouDtl04] vd
+--left join [RAFI_FINAL].[dbo].[ACVouMst04] vh
+--on vd.[HeadId] = vh.[HeadId]
+--where
+--vh.[VoucherDt] = @CurrentDate and vd.[BranchCode] = @BranchCode and
+--vd.[DescId] = @ChartOfAccountId;
+/*
+-- KB chart of accounts
+Select
+	case isnull(Q1.Amount1,0) + isnull(Q2.Amount2,0) + isnull(Q3.Amount3,0) + isnull(Q4.Amount4,0)
+	when 0 then 0
+	else isnull(Q1.Amount1,0) + isnull(Q2.Amount2,0) + isnull(Q3.Amount3,0) + isnull(Q4.Amount4,0)
+	end as 'ActualDailyAmount'
+From (Select
+	sum(acd1.Amt) as 'Amount1'
+From ACVouDtl01 acd1 with (nolock)
+	 Inner join chart_acct ca with (nolock) on ca.id_code = acd1.DescId
+	 Inner join ACVouMst01 acm1 with (nolock) on acd1.HeadId = acm1.HeadId
+Where acm1.CreationDateTime = @CurrentDate and acm1.BranchCode = @BranchCode and ca.id_code = @ChartOfAccountId) Q1,
+(Select
+	sum(acd2.Amt) as 'Amount2'
+From ACVouDtl02 acd2 with (nolock)
+	 Inner join chart_acct ca with (nolock) on ca.id_code = acd2.DescId
+	 Inner join ACVouMst02 acm2 with (nolock) on acd2.HeadId = acm2.HeadId
+Where acm2.CreationDateTime = @CurrentDate and acm2.BranchCode = @BranchCode and ca.id_code = @ChartOfAccountId) Q2,
+(Select
+	sum(acd3.Amt) as 'Amount3'
+From ACVouDtl03 acd3 with (nolock)
+	 Inner join chart_acct ca with (nolock) on ca.id_code = acd3.DescId
+	 Inner join ACVouMst03 acm3 with (nolock) on acd3.HeadId = acm3.HeadId
+Where acm3.CreationDateTime = @CurrentDate and acm3.BranchCode = @BranchCode and ca.id_code = @ChartOfAccountId) Q3,
+(Select
+	sum(acd4.Amt) as 'Amount4'
+From ACVouDtl04 acd4 with (nolock)
+	 Inner join chart_acct ca with (nolock) on ca.id_code = acd4.DescId
+	 Inner join ACVouMst04 acm4 with (nolock) on acd4.HeadId = acm4.HeadId
+Where acm4.CreationDateTime = @CurrentDate and acm4.BranchCode = @BranchCode and ca.id_code = @ChartOfAccountId) Q4 Group by Q1.Amount1,Q2.Amount2,Q3.Amount3,Q4.Amount4
+
+ JAP Chart of Account
+*/
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetPosition]    Script Date: 8/27/2018 5:08:22 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+--EXEC getBudgetPreparationInflowCollections  '2018-1-1','2018-1-31','003'
+-- EXEC spgetBranch
+
+
+ALTER PROCEDURE [dbo].[spgetPosition] 
+
+AS
+BEGIN
+	Begin Try
+		Begin Transaction
+
+		SELECT [DesignationId]
+			  ,[DesigCode] AS 'Code'
+			  ,[DesignationName] AS 'Description'
+
+		 FROM [RAFI_FINAL].[dbo].[DesignationMst]
+		ORDER BY
+			Code
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetWeeklyForecastReloaner]    Script Date: 8/27/2018 5:08:58 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+--EXEC getBudgetPreparationInflowCollections  '2018-1-1','2018-1-31','003'
+-- EXEC spgetWeeklyForecastReloaner '2018-07-01'
+
+
+ALTER PROCEDURE [dbo].[spgetWeeklyForecastReloaner] 
+	@Date date
+AS
+BEGIN
+Begin Try
+
+Begin Transaction
+	Select  TOP 10
+	lm.closingdt AS 'DueDate' ,
+	lm.LoanAmt  AS 'Amount',
+	mm.MemberName as 'ClientName',
+
+	CASE WHEN LEN(mm.ContNo) <> 10 
+         THEN '0'
+         ELSE CONCAT('0',mm.ContNo)
+    END  As 'ContactNumber'
+
+
+
+	-- CONCAT('0','9224878349')  as 'ContactNumber'
+From MemberMst mm with (nolock)
+	 Inner join LoanMst lm with (nolock) on mm.MemberId = lm.MemberId
+	  Where lm.ClosingDt >= @Date AND lm.ClosingDt <=   DATEADD(DAY, 7, @Date)
+	  order by lm.ClosingDt
+-- Where lm.ClosingDt =  @Date
+--	--group by em.EOName
+
+COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
