@@ -575,50 +575,6 @@ Where acm4.CreationDateTime = @CurrentDate and acm4.BranchCode = @BranchCode and
 				'failed'			AS 'return_message';
 	END CATCH
 END
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
-USE [RAFI_FINAL]
-GO
-/****** Object:  StoredProcedure [dbo].[spgetPosition]    Script Date: 8/27/2018 5:08:22 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
---EXEC getBudgetPreparationInflowCollections  '2018-1-1','2018-1-31','003'
--- EXEC spgetBranch
-
-
-ALTER PROCEDURE [dbo].[spgetPosition] 
-
-AS
-BEGIN
-	Begin Try
-		Begin Transaction
-
-		SELECT [DesignationId]
-			  ,[DesigCode] AS 'Code'
-			  ,[DesignationName] AS 'Description'
-
-		 FROM [RAFI_FINAL].[dbo].[DesignationMst]
-		ORDER BY
-			Code
-		COMMIT TRANSACTION
-	END TRY
-
-	BEGIN CATCH
-		-- Rollback all transaction happen on this Store Procedure
-		ROLLBACK TRANSACTION
-		
-		-- Return the generic error type	  
-		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
-				ERROR_SEVERITY()	AS 'ErrorSeverity',  
-				ERROR_STATE()		AS 'ErrorState',
-				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
-				ERROR_LINE()		AS 'ErrorLine',
-				ERROR_MESSAGE()		AS 'ErrorMessage',
-				'failed'			AS 'return_message';
-	END CATCH
-END
 
 -----------------------------------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------
@@ -679,21 +635,105 @@ COMMIT TRANSACTION
 END
 -----------------------------------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_HRIS]
+GO
+/****** Object:  StoredProcedure [dbo].[spHRIS_employee_get]    Script Date: 8/28/2018 5:35:22 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- EXEC spHRIS_employee_get
+-- =============================================
+ALTER PROCEDURE [dbo].[spHRIS_employee_get]
+		
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION			
+				SELECT	EmpCode,
+						SurName,
+						GivenName,
+						MiddleName,
+						em.BranchCode,
+						BranchName,
+						em.DesignationId,
+						dm.DesignationName,
+						dm.ShrtNm,
+						EmpTellNo,
+						EmpEmail
+			  FROM [RAFI_HRIS].[dbo].[EmpMst] em
+			  INNER JOIN BranchMst bm with (nolock) on bm.BranchCode=em.BranchCode
+			  INNER JOIN DesignationMst dm with (nolock) on dm.DesignationId=em.DesignationId
+
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+
+
+
+
 -----------------------------------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------------------------
+USE [RAFI_HRIS]
+GO
+/****** Object:  StoredProcedure [dbo].[spHRIS_position_get]    Script Date: 8/28/2018 5:37:06 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- EXEC spHRIS_get
+-- =============================================
+ALTER PROCEDURE [dbo].[spHRIS_position_get]
+		
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION			
+
+
+			SELECT	[DesignationId]
+					,[DesignationName]
+					,[ShrtNm]
+			FROM [RAFI_HRIS].[dbo].[DesignationMst]
+
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
