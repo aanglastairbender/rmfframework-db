@@ -56,10 +56,51 @@ BEGIN
 	END CATCH
 END
 -----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------USE [RAFI_FINAL]
+GO
+/****** Object:  StoredProcedure [dbo].[spgetBranch]    Script Date: 9/4/2018 9:39:52 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/*
+EXEC [spgetBranch]
+*/
+CREATE PROCEDURE [dbo].[spgetArea] 
+
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+			SELECT 	[MFBName]	 AS 'AreaName'
+			FROM 
+				dbo.[MFBMst](NOLOCK)
+ 			ORDER By 
+				[MFBName]  
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		-- Rollback all transaction happen on this Store Procedure
+		ROLLBACK TRANSACTION
+		
+		-- Return the generic error type	  
+		SELECT	ERROR_NUMBER()		AS 'ErrorNumber',  
+				ERROR_SEVERITY()	AS 'ErrorSeverity',  
+				ERROR_STATE()		AS 'ErrorState',
+				ERROR_PROCEDURE()	AS 'ErrorProcedure',  
+				ERROR_LINE()		AS 'ErrorLine',
+				ERROR_MESSAGE()		AS 'ErrorMessage',
+				'failed'			AS 'return_message';
+	END CATCH
+END
+-----------------------------------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------------
 USE [RAFI_FINAL]
 GO
-/****** Object:  StoredProcedure [dbo].[spgetBranch]    Script Date: 8/27/2018 4:02:22 PM ******/
+/****** Object:  StoredProcedure [dbo].[spgetBranch]    Script Date: 9/4/2018 9:39:52 AM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -74,17 +115,18 @@ BEGIN
 	BEGIN TRY
 		BEGIN TRANSACTION
 
-			SELECT 	BranchCode,
+			SELECT 	MFBName		AS 'AreaName',
+					BranchCode,
 					BranchName,
 					Address1 AS 'Address',
-					Latitude,
-					Longitude
+					bm.Latitude,
+					bm.Longitude
 			FROM 
-				dbo.BranchMst(NOLOCK) 
- 			WHERE 
-				EntType <> 'D' 
+				dbo.BranchMst(NOLOCK) bm
+ 				LEFT JOIN [MFBMst] am
+				ON am.[MFBId] = bm.[MFBId]
  			ORDER By 
-				BranchName  
+				AreaName,BranchName  
 
 		COMMIT TRANSACTION
 	END TRY
